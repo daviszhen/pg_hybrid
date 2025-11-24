@@ -1,55 +1,31 @@
-# Prerequisites
-*.d
-
-# Object files
+# PostgreSQL extension build artifacts
 *.o
-*.ko
-*.obj
-*.elf
-
-# Linker output
-*.ilk
-*.map
-*.exp
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Libraries
-*.lib
+*.so
+*.d
 *.a
 *.la
 *.lo
 
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
+# PostgreSQL extension installation
+*.control.bak
+*.sql.bak
 
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
+# Build directories
+build/
+dist/
 
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
+# IDE files
+.vscode/*
+!.vscode/c_cpp_properties.json
+.idea/
+*.swp
+*.swo
+*~
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+# OS files
+.DS_Store
+Thumbs.db
 
-# debug information files
-*.dwo
+# Test files
+*.log
+*.tmp

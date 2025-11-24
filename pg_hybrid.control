@@ -1,0 +1,8 @@
+# pg_hybrid extension control file
+comment = 'columnar storage engine'
+default_version = '1.0'
+module_pathname = '$libdir/pg_hybrid'
+relocatable = false
+superuser = false
+
+

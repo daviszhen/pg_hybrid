@@ -1,0 +1,12 @@
+CompileFlags:
+  Add:
+    - -I/home/pengzhen/pg16/include/postgresql/server
+    - -I/home/pengzhen/pg16/include/postgresql/internal
+    - -I/home/pengzhen/pg16/include/postgresql
+    - -D_GNU_SOURCE
+    - -std=c11
+    - -Wall
+    - -Wmissing-prototypes
+    - -Wpointer-arith
+    - -Wdeclaration-after-statement
+

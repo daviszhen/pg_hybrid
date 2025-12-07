@@ -24,6 +24,7 @@ ivfflat_build(Relation heap, Relation index, IndexInfo *indexInfo)
         indexInfo,
         MAIN_FORKNUM);
 
+    elog(INFO, "==pengzhen==ivfflat_build: %d", ctx->centers->dimensions);
     ivfflat_build_index(ctx, MAIN_FORKNUM);
 
     result = (IndexBuildResult *) palloc(sizeof(IndexBuildResult));
@@ -114,14 +115,17 @@ ivfflat_build_destroy_ctx(IvfflatBuildCtx ctx)
 
 void
 ivfflat_build_index(IvfflatBuildCtx ctx,ForkNumber fork_num){
+    elog(INFO, "==pengzhen==111:");
     //step 1. calculate the centers
     ivfflat_calculate_centers(ctx);
+    elog(INFO, "==pengzhen==222:");
     //step 2. create the meta page
     ivfflat_create_meta_page(
         ctx->index,
          ctx->dimensions,
           ctx->list_count,
            fork_num);
+    elog(INFO, "==pengzhen==333:");
     //step 3. create the list pages
     ivfflat_create_list_pages(
         ctx->index,
@@ -130,9 +134,10 @@ ivfflat_build_index(IvfflatBuildCtx ctx,ForkNumber fork_num){
         ctx->list_count,
         fork_num,
         ctx->list_infos);
+    elog(INFO, "==pengzhen==444:");
     //step 4. create the entry pages
     ivfflat_create_entry_pages(ctx,fork_num);
-
+    elog(INFO, "==pengzhen==555:");
     if(fork_num == INIT_FORKNUM){
         log_newpage_range(
             ctx->index,
@@ -141,7 +146,9 @@ ivfflat_build_index(IvfflatBuildCtx ctx,ForkNumber fork_num){
             RelationGetNumberOfBlocksInFork(ctx->index, fork_num),
             true
         );
+        elog(INFO, "==pengzhen==666:");
     }
+    elog(INFO, "==pengzhen==777:");
 }
 
 FmgrInfo *
@@ -183,17 +190,18 @@ ivfflat_create_meta_page(
     Page page;
     GenericXLogState *state;
     IvfflatMetaPage meta;
-
+    elog(INFO, "==pengzhen==create_meta_page111:");
     buf= ivfflat_new_buffer(index, forkNum);
+    elog(INFO, "==pengzhen==create_meta_page222:");
     ivfflat_start_xlog(index, &buf, &page, &state);
-    
+    elog(INFO, "==pengzhen==create_meta_page333:");
     meta = IvfflatPageGetMeta(page);
     meta->version = IVFFLAT_VERSION;
     meta->dimensions = dimensions;
     meta->list_count = list_count;
     ((PageHeader) page)->pd_lower =
         ((char *) meta + sizeof(IvfflatMetaPageData)) - (char *) page;
-
+    elog(INFO, "==pengzhen==create_meta_page444:");
     ivfflat_commit_xlog(buf, state);
 }
 

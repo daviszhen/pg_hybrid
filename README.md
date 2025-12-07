@@ -102,9 +102,6 @@ sudo make install
 **重要**: 在创建 pg_hybrid 扩展之前，需要先安装 pgvector 扩展：
 
 ```sql
--- 首先安装 pgvector 扩展（如果尚未安装）
-CREATE EXTENSION IF NOT EXISTS vector;
-
 -- 然后安装 pg_hybrid 扩展
 CREATE EXTENSION pg_hybrid;
 ```
@@ -131,21 +128,21 @@ WHERE opcmethod = (SELECT oid FROM pg_am WHERE amname = 'pg_hybrid_ivfflat');
 -- 创建包含向量列的表
 CREATE TABLE items (
     id bigserial PRIMARY KEY,
-    embedding vector(128)
+    embedding pg_hybrid_vector(128)
 );
 
 -- 使用 pg_hybrid_ivfflat 访问方法创建 IVFFlat 索引
-CREATE INDEX ON items USING pg_hybrid_ivfflat (embedding vector_l2_ops)
+CREATE INDEX ON items USING pg_hybrid_ivfflat (embedding pg_hybrid_vector_l2_ops)
 WITH (lists = 100);
 
 -- 插入向量数据
 INSERT INTO items (embedding) VALUES 
-    ('[1,2,3,4,5]'::vector),
-    ('[6,7,8,9,10]'::vector);
+    ('[1,2,3,4,5]'::pg_hybrid_vector),
+    ('[6,7,8,9,10]'::pg_hybrid_vector);
 
 -- 向量相似度搜索（使用 L2 距离）
 SELECT * FROM items 
-ORDER BY embedding <-> '[1,2,3,4,5]'::vector 
+ORDER BY embedding <-> '[1,2,3,4,5]'::pg_hybrid_vector 
 LIMIT 10;
 ```
 
@@ -162,7 +159,7 @@ LIMIT 10;
 - `ivfflat.probes`: 设置查询时探测的列表数量（默认: 1）
   ```sql
   SET ivfflat.probes = 10;
-  SELECT * FROM items ORDER BY embedding <-> '[1,2,3]'::vector LIMIT 5;
+  SELECT * FROM items ORDER BY embedding <-> '[1,2,3]'::pg_hybrid_vector LIMIT 5;
   ```
 
 ## Cursor/VSCode配置

@@ -5,13 +5,20 @@
 #include "postgres.h"
 #include "fmgr.h"
 #include "utils/relcache.h"
+#include "varatt.h"
 
 #define IVFFLAT_MAX_DIMENSIONS 2000
+#define VECTOR_MAX_DIM IVFFLAT_MAX_DIMENSIONS
+
+/* Macros for accessing vector data */
+#define PG_GETARG_VECTOR_P(n) ((Vector) PG_DETOAST_DATUM(PG_GETARG_DATUM(n)))
+#define DatumGetVectorP(X) ((Vector) PG_DETOAST_DATUM(X))
 
 typedef struct VectorData
 {
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
 	int16		dim;			/* number of dimensions */
+	int16		unused;			/* reserved for future use, always zero */
 	float		data[FLEXIBLE_ARRAY_MEMBER];
 }			VectorData;
 
@@ -65,9 +72,6 @@ array_create(int max_length, int dimensions, Size item_size);
 void
 array_destroy(Array array);
 
-void
-array_append(Array array, void *data);
-
 Pointer
 array_get(Array array, int index);
 
@@ -82,5 +86,22 @@ ivfflat_norm_non_zero(FmgrInfo *proc, Oid collation, Datum value);
 
 Datum
 ivfflat_normalize_value(const IvfflatVectorType vector_type, Oid collation, Datum value);
+
+/* Vector type I/O functions */
+PGDLLEXPORT Datum pg_hybrid_vector_in(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum pg_hybrid_vector_out(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum pg_hybrid_vector_typmod_in(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum pg_hybrid_vector_recv(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum pg_hybrid_vector_send(PG_FUNCTION_ARGS);
+
+/* Vector utility functions */
+PGDLLEXPORT Datum pg_hybrid_vector_dims(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum pg_hybrid_vector_norm(PG_FUNCTION_ARGS);
+
+/* Vector distance functions */
+PGDLLEXPORT Datum pg_hybrid_l2_distance(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum pg_hybrid_vector_l2_squared_distance(PG_FUNCTION_ARGS);
+
+/* Helper functions - defined in vector.c */
 
 #endif

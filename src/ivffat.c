@@ -7,8 +7,8 @@ ivfflat_handler(PG_FUNCTION_ARGS)
 	IndexAmRoutine *amroutine = makeNode(IndexAmRoutine);
     //0 自定义操作符号
     amroutine->amstrategies = 0;
-    //PROC的最大编号
-    amroutine->amsupport = 0;
+    //PROC的最大编号 - 支持5个支持函数（距离、归一化、K-means距离、K-means归一化、向量类型）
+    amroutine->amsupport = 5;
     //不支持按列排序
     amroutine->amcanorder = false;
     //支持按操作符结果排序

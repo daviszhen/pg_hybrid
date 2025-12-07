@@ -7,6 +7,7 @@
  */
 
 #include "pg_hybrid.h"
+#include "ivfflat_options.h"
 
 
 PG_MODULE_MAGIC;
@@ -15,7 +16,7 @@ PGDLLEXPORT void _PG_init(void);
 void
 _PG_init(void)
 {
-
+    ivfflat_init_options();
 }
 
 

@@ -38,63 +38,14 @@ ivfflat_handler(PG_FUNCTION_ARGS)
     PG_RETURN_POINTER(amroutine);
 }
 
-IndexBulkDeleteResult *
-ivfflat_bulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
-				  IndexBulkDeleteCallback callback, void *callback_state)
-{
-
-    return NULL;
-}
-
-IndexBulkDeleteResult *
-ivfflat_vacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats)
-{
-
-    return NULL;
-}
-
-static void
-ivfflat_costestimate(PlannerInfo *root, IndexPath *path, double loop_count,
-    Cost *indexStartupCost, Cost *indexTotalCost,
-    Selectivity *indexSelectivity, double *indexCorrelation,
-    double *indexPages){
-    
-}
-
-static bytea *
-ivfflat_options(Datum reloptions, bool validate){
-
-    return NULL;
-}
-
-static char *
+char *
 ivfflat_buildphasename(int64 phasenum){
-    return NULL;
-}
-
-static bool
-ivfflat_validate(Oid opclassoid)
-{
-	return true;
-}
-
-IndexScanDesc
-ivfflat_beginscan(Relation index, int nkeys, int norderbys){
 
     return NULL;
-}
-
-void
-ivfflat_rescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int norderbys){
-
 }
 
 bool
-ivfflat_gettuple(IndexScanDesc scan, ScanDirection dir){
-    return false;
-}
-
-void
-ivfflat_endscan(IndexScanDesc scan){
-
+ivfflat_validate(Oid opclassoid)
+{
+	return true;
 }

@@ -33,19 +33,19 @@ ivfflat_bulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 IndexBulkDeleteResult *
 ivfflat_vacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats);
 
-static void
+void
 ivfflat_costestimate(PlannerInfo *root, IndexPath *path, double loop_count,
     Cost *indexStartupCost, Cost *indexTotalCost,
     Selectivity *indexSelectivity, double *indexCorrelation,
     double *indexPages);
 
-static bytea *
+bytea *
 ivfflat_options(Datum reloptions, bool validate);
 
-static char *
+char *
 ivfflat_buildphasename(int64 phasenum);
 
-static bool
+bool
 ivfflat_validate(Oid opclassoid);
 
 IndexScanDesc

@@ -2,7 +2,7 @@
 # 需要 PostgreSQL 16 开发头文件
 
 MODULE_big = pg_hybrid
-OBJS = src/pg_hybrid.o src/ivffat.o src/ivfflat_build.o src/ivfflat_page.o src/vector.o src/ivfflat_insert.o
+OBJS = src/pg_hybrid.o src/ivffat.o src/ivfflat_build.o src/ivfflat_page.o src/vector.o src/ivfflat_insert.o src/ivfflat_delete.o src/ivfflat_options.o src/ivfflat_scan.o
 EXTENSION = pg_hybrid
 DATA = pg_hybrid--1.0.sql
 PGFILEDESC = "pg_hybrid - columnar storage engine"

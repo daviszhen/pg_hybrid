@@ -1,21 +1,26 @@
 #include "ivfflat_page.h"
+#include "access/generic_xlog.h"
 #include "c.h"
 #include "storage/block.h"
 #include "storage/bufmgr.h"
 #include "storage/bufpage.h"
 #include "storage/off.h"
+#include "utils/relcache.h"
 #include <float.h>
 
 Buffer
-ivfflat_new_buffer(Relation rel, ForkNumber forkNum){
-    Buffer		buf = ReadBufferExtended(
+ivfflat_new_buffer(Relation rel, ForkNumber forkNum){ 
+    Buffer		buf;
+    // elog(INFO, "==pengzhen==new_buffer111:");
+    buf = ReadBufferExtended(
         rel,
         forkNum,
         P_NEW,
         RBM_NORMAL,
         NULL);
-
+        // elog(INFO, "==pengzhen==new_buffer222:");
 	LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
+    // elog(INFO, "==pengzhen==new_buffer333:");
 	return buf;
 }
 
@@ -26,7 +31,7 @@ ivfflat_init_page(Buffer buf, Page page){
         BufferGetPageSize(buf),
          sizeof(IvfflatPageOpaqueData));
 	IvfflatPageGetOpaque(page)->nextblkno = InvalidBlockNumber;
-	IvfflatPageGetOpaque(page)->page_id = 0;
+	IvfflatPageGetOpaque(page)->page_id = IVFFLAT_PAGE_ID;
 }
 
 void
@@ -127,8 +132,27 @@ ivfflat_find_insert_page(
 
 void
 ivfflat_start_xlog(Relation index,Buffer *buf,Page *page, GenericXLogState **state){
+    // elog(INFO, "==pengzhen==start_xlog000: state: %d index: %d",state != NULL,index != NULL);
     *state = GenericXLogStart(index);
+    // elog(INFO, "==pengzhen==start_xlog111:");
     ivfflat_append_xlog(buf, page, *state);
+    // elog(INFO, "==pengzhen==start_xlog222:");
+}
+
+void
+ivfflat_init_register_page(
+    Relation index,
+    Buffer *buf,
+    Page *page,
+    GenericXLogState **state
+){
+    // elog(INFO, "==pengzhen==ivfflat_init_register_page111:");
+    *state = GenericXLogStart(index);
+    // elog(INFO, "==pengzhen==ivfflat_init_register_page222:");
+    *page = GenericXLogRegisterBuffer(*state, *buf, GENERIC_XLOG_FULL_IMAGE);
+    // elog(INFO, "==pengzhen==ivfflat_init_register_page333:");
+    ivfflat_init_page(*buf,*page);
+    // elog(INFO, "==pengzhen==ivfflat_init_register_page444:");
 }
 
 void
@@ -137,7 +161,9 @@ ivfflat_append_xlog(
     Page *page,
     GenericXLogState *state){
     *page = GenericXLogRegisterBuffer(state, *buf, GENERIC_XLOG_FULL_IMAGE);
+    // elog(INFO, "==pengzhen==append_xlog111:");
     ivfflat_init_page(*buf, *page);
+    // elog(INFO, "==pengzhen==append_xlog222:");
 }
 
 void

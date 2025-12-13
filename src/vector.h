@@ -88,19 +88,19 @@ Datum
 ivfflat_normalize_value(const IvfflatVectorType vector_type, Oid collation, Datum value);
 
 /* Vector type I/O functions */
-PGDLLEXPORT Datum pg_hybrid_vector_in(PG_FUNCTION_ARGS);
-PGDLLEXPORT Datum pg_hybrid_vector_out(PG_FUNCTION_ARGS);
-PGDLLEXPORT Datum pg_hybrid_vector_typmod_in(PG_FUNCTION_ARGS);
-PGDLLEXPORT Datum pg_hybrid_vector_recv(PG_FUNCTION_ARGS);
-PGDLLEXPORT Datum pg_hybrid_vector_send(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_in(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_out(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_typmod_in(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_recv(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_send(PG_FUNCTION_ARGS);
 
 /* Vector utility functions */
-PGDLLEXPORT Datum pg_hybrid_vector_dims(PG_FUNCTION_ARGS);
-PGDLLEXPORT Datum pg_hybrid_vector_norm(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_dims(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_norm(PG_FUNCTION_ARGS);
 
 /* Vector distance functions */
-PGDLLEXPORT Datum pg_hybrid_l2_distance(PG_FUNCTION_ARGS);
-PGDLLEXPORT Datum pg_hybrid_vector_l2_squared_distance(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_l2_distance(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_l2_squared_distance(PG_FUNCTION_ARGS);
 
 /* Helper functions - defined in vector.c */
 

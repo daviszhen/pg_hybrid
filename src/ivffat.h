@@ -10,8 +10,14 @@
 #include "commands/vacuum.h"
 #include "nodes/execnodes.h"
 #include "nodes/pathnodes.h"
+#include "common/pg_prng.h"
 
 #define IVFFLAT_VERSION 1
+#define IVFFLAT_PAGE_ID          0xFF84
+
+#define RandomDouble() pg_prng_double(&pg_global_prng_state)
+#define RandomInt() pg_prng_uint32(&pg_global_prng_state)
+#define SeedRandom(seed) pg_prng_seed(&pg_global_prng_state, seed)
 
 IndexBuildResult *
 ivfflat_build(Relation heap, Relation index, IndexInfo *indexInfo);

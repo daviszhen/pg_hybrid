@@ -1,8 +1,8 @@
 #include "ivffat.h"
 
-PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_handler);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(pg_hybrid_ivfflat_handler);
 Datum
-ivfflat_handler(PG_FUNCTION_ARGS)
+pg_hybrid_ivfflat_handler(PG_FUNCTION_ARGS)
 {
 	IndexAmRoutine *amroutine = makeNode(IndexAmRoutine);
     //0 自定义操作符号

@@ -87,4 +87,12 @@ ivfflat_commit_xlog(Buffer buf, GenericXLogState *state);
 
 void
 ivfflat_abort_xlog(Buffer buf, GenericXLogState *state);
+
+void
+ivfflat_init_register_page(
+    Relation index,
+    Buffer *buf,
+    Page *page,
+    GenericXLogState **state
+);
 #endif

@@ -49,10 +49,11 @@ vector_sum_center(Pointer v, float *x){
 Array
 array_create(int max_length, int dimensions, Size item_size){
     Array array = palloc(sizeof(ArrayData));
+    item_size = MAXALIGN(item_size);
     array->length = 0;
     array->max_length = max_length;
     array->dimensions = dimensions;
-    array->item_size = MAXALIGN(item_size);
+    array->item_size = item_size;
     array->data = palloc_extended(
         max_length * item_size, 
         MCXT_ALLOC_ZERO | MCXT_ALLOC_HUGE);
@@ -67,12 +68,12 @@ array_destroy(Array array){
 
 Pointer
 array_get(Array array, int index){
-    return array->data + index * array->item_size;
+    return array->data + (index * array->item_size);
 }
 
-PGDLLEXPORT PG_FUNCTION_INFO_V1(pg_hybrid_vector_l2_normalize);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_l2_normalize);
 Datum
-pg_hybrid_vector_l2_normalize(PG_FUNCTION_ARGS){
+hvector_l2_normalize(PG_FUNCTION_ARGS){
     Vector a;
     double norm = 0.0;
     Vector res;
@@ -97,11 +98,11 @@ pg_hybrid_vector_l2_normalize(PG_FUNCTION_ARGS){
     PG_RETURN_POINTER(res);
 }
 
-PGDLLEXPORT Datum pg_hybrid_vector_l2_normalize(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_l2_normalize(PG_FUNCTION_ARGS);
 
 static const IvfflatVectorTypeData ivfflat_default_vector_type_data = {
     .max_dimensions = IVFFLAT_MAX_DIMENSIONS,
-    .normalize = pg_hybrid_vector_l2_normalize,
+    .normalize = hvector_l2_normalize,
     .item_size = vector_size,
     .update_center = vector_update_center,
     .sum_center = vector_sum_center,
@@ -172,9 +173,9 @@ static inline bool char_isspace(char ch)
 }
 
 /* Vector input function */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(pg_hybrid_vector_in);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_in);
 Datum
-pg_hybrid_vector_in(PG_FUNCTION_ARGS)
+hvector_in(PG_FUNCTION_ARGS)
 {
     char *lit = PG_GETARG_CSTRING(0);
     int32 typmod = PG_GETARG_INT32(2);
@@ -283,9 +284,9 @@ pg_hybrid_vector_in(PG_FUNCTION_ARGS)
 }
 
 /* Vector output function */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(pg_hybrid_vector_out);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_out);
 Datum
-pg_hybrid_vector_out(PG_FUNCTION_ARGS)
+hvector_out(PG_FUNCTION_ARGS)
 {
     Vector vec = PG_GETARG_VECTOR_P(0);
     StringInfoData buf;
@@ -310,9 +311,9 @@ pg_hybrid_vector_out(PG_FUNCTION_ARGS)
 }
 
 /* Vector typmod input function */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(pg_hybrid_vector_typmod_in);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_typmod_in);
 Datum
-pg_hybrid_vector_typmod_in(PG_FUNCTION_ARGS)
+hvector_typmod_in(PG_FUNCTION_ARGS)
 {
     ArrayType *ta = PG_GETARG_ARRAYTYPE_P(0);
     int32 *tl;
@@ -339,9 +340,9 @@ pg_hybrid_vector_typmod_in(PG_FUNCTION_ARGS)
 }
 
 /* Vector receive function (binary input) */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(pg_hybrid_vector_recv);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_recv);
 Datum
-pg_hybrid_vector_recv(PG_FUNCTION_ARGS)
+hvector_recv(PG_FUNCTION_ARGS)
 {
     StringInfo buf = (StringInfo) PG_GETARG_POINTER(0);
     int32 typmod = PG_GETARG_INT32(2);
@@ -372,9 +373,9 @@ pg_hybrid_vector_recv(PG_FUNCTION_ARGS)
 }
 
 /* Vector send function (binary output) */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(pg_hybrid_vector_send);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_send);
 Datum
-pg_hybrid_vector_send(PG_FUNCTION_ARGS)
+hvector_send(PG_FUNCTION_ARGS)
 {
     Vector vec = PG_GETARG_VECTOR_P(0);
     StringInfoData buf;
@@ -389,18 +390,18 @@ pg_hybrid_vector_send(PG_FUNCTION_ARGS)
 }
 
 /* Vector dimensions function */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(pg_hybrid_vector_dims);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_dims);
 Datum
-pg_hybrid_vector_dims(PG_FUNCTION_ARGS)
+hvector_dims(PG_FUNCTION_ARGS)
 {
     Vector vec = PG_GETARG_VECTOR_P(0);
     PG_RETURN_INT32(vec->dim);
 }
 
 /* Vector norm function */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(pg_hybrid_vector_norm);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_norm);
 Datum
-pg_hybrid_vector_norm(PG_FUNCTION_ARGS)
+hvector_norm(PG_FUNCTION_ARGS)
 {
     Vector vec = PG_GETARG_VECTOR_P(0);
     double sum = 0.0;
@@ -412,9 +413,9 @@ pg_hybrid_vector_norm(PG_FUNCTION_ARGS)
 }
 
 /* L2 distance function */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(pg_hybrid_l2_distance);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_l2_distance);
 Datum
-pg_hybrid_l2_distance(PG_FUNCTION_ARGS)
+hvector_l2_distance(PG_FUNCTION_ARGS)
 {
     Vector a = PG_GETARG_VECTOR_P(0);
     Vector b = PG_GETARG_VECTOR_P(1);
@@ -436,9 +437,9 @@ pg_hybrid_l2_distance(PG_FUNCTION_ARGS)
 }
 
 /* L2 squared distance function */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(pg_hybrid_vector_l2_squared_distance);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_l2_squared_distance);
 Datum
-pg_hybrid_vector_l2_squared_distance(PG_FUNCTION_ARGS)
+hvector_l2_squared_distance(PG_FUNCTION_ARGS)
 {
     Vector a = PG_GETARG_VECTOR_P(0);
     Vector b = PG_GETARG_VECTOR_P(1);

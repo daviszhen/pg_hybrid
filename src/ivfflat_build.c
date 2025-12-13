@@ -4,6 +4,7 @@
 #include "fmgr.h"
 #include "ivfflat_page.h"
 #include "postgres.h"
+#include "src/ivffat.h"
 #include "src/vector.h"
 #include "catalog/pg_operator_d.h"
 #include "miscadmin.h"
@@ -13,6 +14,7 @@
 #include "storage/off.h"
 #include <float.h>
 #include "catalog/index.h"
+#include "utils/palloc.h"
 
 IndexBuildResult *
 ivfflat_build(Relation heap, Relation index, IndexInfo *indexInfo)
@@ -24,7 +26,7 @@ ivfflat_build(Relation heap, Relation index, IndexInfo *indexInfo)
         indexInfo,
         MAIN_FORKNUM);
 
-    elog(INFO, "==pengzhen==ivfflat_build: %d", ctx->centers->dimensions);
+    // elog(INFO, "==pengzhen==ivfflat_build: %d", ctx->centers->dimensions);
     ivfflat_build_index(ctx, MAIN_FORKNUM);
 
     result = (IndexBuildResult *) palloc(sizeof(IndexBuildResult));
@@ -95,7 +97,7 @@ ivfflat_build_init_ctx(
          ctx->vector_type->item_size(ctx->dimensions));
     ctx->list_infos = array_create(
         ctx->list_count,
-        0,
+        1,
         sizeof(ListInfoData));
     ctx->tmp_ctx = AllocSetContextCreate(
         CurrentMemoryContext,
@@ -115,17 +117,17 @@ ivfflat_build_destroy_ctx(IvfflatBuildCtx ctx)
 
 void
 ivfflat_build_index(IvfflatBuildCtx ctx,ForkNumber fork_num){
-    elog(INFO, "==pengzhen==111:");
+    // elog(INFO, "==pengzhen==111:");
     //step 1. calculate the centers
     ivfflat_calculate_centers(ctx);
-    elog(INFO, "==pengzhen==222:");
+    // elog(INFO, "==pengzhen==222:");
     //step 2. create the meta page
     ivfflat_create_meta_page(
         ctx->index,
          ctx->dimensions,
           ctx->list_count,
            fork_num);
-    elog(INFO, "==pengzhen==333:");
+    // elog(INFO, "==pengzhen==333:");
     //step 3. create the list pages
     ivfflat_create_list_pages(
         ctx->index,
@@ -134,10 +136,10 @@ ivfflat_build_index(IvfflatBuildCtx ctx,ForkNumber fork_num){
         ctx->list_count,
         fork_num,
         ctx->list_infos);
-    elog(INFO, "==pengzhen==444:");
+    // elog(INFO, "==pengzhen==444:");
     //step 4. create the entry pages
     ivfflat_create_entry_pages(ctx,fork_num);
-    elog(INFO, "==pengzhen==555:");
+    // elog(INFO, "==pengzhen==555:");
     if(fork_num == INIT_FORKNUM){
         log_newpage_range(
             ctx->index,
@@ -146,9 +148,9 @@ ivfflat_build_index(IvfflatBuildCtx ctx,ForkNumber fork_num){
             RelationGetNumberOfBlocksInFork(ctx->index, fork_num),
             true
         );
-        elog(INFO, "==pengzhen==666:");
+        // elog(INFO, "==pengzhen==666:");
     }
-    elog(INFO, "==pengzhen==777:");
+    // elog(INFO, "==pengzhen==777:");
 }
 
 FmgrInfo *
@@ -168,15 +170,21 @@ void
 ivfflat_random_centers(IvfflatBuildCtx ctx){
     float *temp = (float *) palloc(
         sizeof(float)*ctx->centers->dimensions);
+    FmgrInfo *procinfo = ivfflat_get_proc_info(ctx->index, IVFFALT_VECTOR_NORMALIZATION_PROC);
 
-    for(; ctx->centers->length < ctx->centers->dimensions;){
+    for(; ctx->centers->length < ctx->centers->max_length;){
         Pointer center = array_get(ctx->centers, ctx->centers->length);
         for(int i = 0; i < ctx->centers->dimensions; i++){
-            temp[i] = (float) 0.0;//FIXME: use random double
+            temp[i] = RandomDouble();
         }
         ctx->vector_type->update_center(center, ctx->centers->dimensions, temp);
         ctx->centers->length++;
     }
+
+    if(procinfo != NULL){
+        
+    }
+
 }
 
 void 
@@ -190,18 +198,18 @@ ivfflat_create_meta_page(
     Page page;
     GenericXLogState *state;
     IvfflatMetaPage meta;
-    elog(INFO, "==pengzhen==create_meta_page111:");
+    // elog(INFO, "==pengzhen==create_meta_page111:");
     buf= ivfflat_new_buffer(index, forkNum);
-    elog(INFO, "==pengzhen==create_meta_page222:");
+    // elog(INFO, "==pengzhen==create_meta_page222:");
     ivfflat_start_xlog(index, &buf, &page, &state);
-    elog(INFO, "==pengzhen==create_meta_page333:");
+    // elog(INFO, "==pengzhen==create_meta_page333:");
     meta = IvfflatPageGetMeta(page);
     meta->version = IVFFLAT_VERSION;
     meta->dimensions = dimensions;
     meta->list_count = list_count;
     ((PageHeader) page)->pd_lower =
         ((char *) meta + sizeof(IvfflatMetaPageData)) - (char *) page;
-    elog(INFO, "==pengzhen==create_meta_page444:");
+    // elog(INFO, "==pengzhen==create_meta_page444:");
     ivfflat_commit_xlog(buf, state);
 }
 
@@ -440,12 +448,54 @@ ivfflat_get_next_tuple(
     IndexTuple *itup,
     int *list_no
 ){
+    Size sz;
+    char *value_str;
+    struct varlena *varlena_ptr;
     if(tuplesort_gettupleslot(sort_state, true, false, slot, NULL)){
         Datum value;
         bool isnull;
 
         *list_no = DatumGetInt32(slot_getattr(slot, 1, &isnull));
         value = slot_getattr(slot, 3, &isnull);
+
+        sz = VARSIZE(value);
+        elog(INFO, "==pengzhen==value size: %ld",sz);
+        // ✅ 判断是否是 TOAST
+        // if (!isnull) {
+        //     varlena_ptr = (struct varlena *) DatumGetPointer(value);
+            
+        //     if (VARATT_IS_EXTERNAL(varlena_ptr)) {
+        //         elog(INFO, "==pengzhen==value is TOAST external (stored in TOAST table)");
+                
+        //         if (VARATT_IS_EXTERNAL_ONDISK(varlena_ptr)) {
+        //             elog(INFO, "==pengzhen==value is TOAST on-disk");
+        //         } else if (VARATT_IS_EXTERNAL_INDIRECT(varlena_ptr)) {
+        //             elog(INFO, "==pengzhen==value is TOAST indirect (in-memory)");
+        //         }
+        //     } else if (VARATT_IS_COMPRESSED(varlena_ptr)) {
+        //         elog(INFO, "==pengzhen==value is compressed inline");
+        //     } else {
+        //         elog(INFO, "==pengzhen==value is plain (not TOAST)");
+        //     }
+            
+        //     // 或者使用更简单的判断
+        //     if (VARATT_IS_EXTENDED(varlena_ptr)) {
+        //         elog(INFO, "==pengzhen==value is extended (compressed or external)");
+        //     }
+        // } else {
+        //     elog(INFO, "==pengzhen==value: NULL");
+        // }
+        // if (!isnull) {
+        //     // 方法 1：调用输出函数（需要包含 fmgr.h）
+        //     value_str = DatumGetCString(DirectFunctionCall1(
+        //         hvector_out, 
+        //         value
+        //     ));
+        //     elog(INFO, "==pengzhen==value: %s", value_str);
+        //     pfree(value_str);
+        // } else {
+        //     elog(INFO, "==pengzhen==value: NULL");
+        // }
 
         *itup = index_form_tuple(tupdesc, &value, &isnull);
         (*itup)->t_tid = *((ItemPointer) DatumGetPointer(

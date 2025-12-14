@@ -92,13 +92,20 @@ void
 ivfflat_scan_tuples(IvfflatBuildCtx ctx);
 
 void
-ivfflat_sort_tuples(
+ivfflat_sort_tuples_callback(
     Relation index,
     ItemPointer tid,
     Datum *values,
     bool *isnull,
     bool tupleIsAlive,
     void *state);
+
+void
+ivfflat_sort_tuples(
+    Relation index,
+    ItemPointer tid,
+    Datum *values,
+    IvfflatBuildCtx ctx);
 
 void
 ivfflat_insert_tuples(IvfflatBuildCtx ctx, ForkNumber fork_num);

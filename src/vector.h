@@ -5,6 +5,7 @@
 #include "postgres.h"
 #include "fmgr.h"
 #include "utils/relcache.h"
+#include "utils/varbit.h"
 #include "varatt.h"
 
 #define IVFFLAT_MAX_DIMENSIONS 2000
@@ -56,6 +57,9 @@ vector_update_center(Pointer center, int dimensions, float *temp);
 void
 vector_sum_center(Pointer v, float *x);
 
+VarBit* 
+bitvector_create(int dim);
+
 typedef struct ArrayData{
     int length;
     int max_length;
@@ -97,11 +101,43 @@ PGDLLEXPORT Datum hvector_send(PG_FUNCTION_ARGS);
 /* Vector utility functions */
 PGDLLEXPORT Datum hvector_dims(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum hvector_norm(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_l2_normalize(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_binary_quantize(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_subvector(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_concat(PG_FUNCTION_ARGS);
 
 /* Vector distance functions */
 PGDLLEXPORT Datum hvector_l2_distance(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum hvector_l2_squared_distance(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_cosine_distance(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_l1_distance(PG_FUNCTION_ARGS);
+
+// 向量数值函数
+PGDLLEXPORT Datum hvector_add(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_sub(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_mul(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_lt(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_le(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_eq(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_ne(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_ge(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_gt(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_cmp(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_inner_product(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_negative_inner_product(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_spherical_distance(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_accum(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_combine(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_avg(PG_FUNCTION_ARGS);
+
+//向量类型转换
+PGDLLEXPORT Datum hvector(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum array_to_hvector(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_to_float4(PG_FUNCTION_ARGS);
 
 /* Helper functions - defined in vector.c */
-
+float
+hvector_inner_product_float(int dim, float *a, float *b);
+int
+hvector_cmp0(Vector a, Vector b);
 #endif

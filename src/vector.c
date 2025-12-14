@@ -1,4 +1,5 @@
 #include "vector.h"
+#include "postgres.h"
 #include "utils/varbit.h"
 #include "varatt.h"
 #include "fmgr.h"
@@ -639,4 +640,277 @@ PGDLLEXPORT Datum hvector_l1_distance(PG_FUNCTION_ARGS){
         sum += fabsf(a->data[i] - b->data[i]);
     }
     PG_RETURN_FLOAT8((double)sum);
+}
+
+// 向量加法
+// 输入：两个Vector类型的值
+// 输出：一个Vector类型的值
+// 示例：
+// SELECT hvector_add('[1,0,0,0,1]'::hvector, '[1,0,0,1,0]'::hvector);
+// 结果： [2,0,0,1,1]
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_add);
+PGDLLEXPORT Datum hvector_add(PG_FUNCTION_ARGS){
+    Vector a = PG_GETARG_VECTOR_P(0);
+    Vector b = PG_GETARG_VECTOR_P(1);
+    Vector res;
+
+    CheckDims(a, b);
+
+    res = vector_create(a->dim);
+    for(int i = 0; i < a->dim; i++){
+        res->data[i] = a->data[i] + b->data[i];
+    }
+
+    for(int i = 0; i < a->dim; i++){
+        if(isinf(res->data[i])){
+            float_overflow_error();
+        }
+    }
+    PG_RETURN_POINTER(res);
+}
+
+// 向量减法
+// 输入：两个Vector类型的值
+// 输出：一个Vector类型的值
+// 示例：
+// SELECT hvector_sub('[1,0,0,0,1]'::hvector, '[1,0,0,1,0]'::hvector);
+// 结果： [0,0,0,-1,-1]
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_sub);
+PGDLLEXPORT Datum hvector_sub(PG_FUNCTION_ARGS){
+    Vector a = PG_GETARG_VECTOR_P(0);
+    Vector b = PG_GETARG_VECTOR_P(1);
+    Vector res;
+
+    CheckDims(a, b);
+
+    res = vector_create(a->dim);
+    for(int i = 0; i < a->dim; i++){
+        res->data[i] = a->data[i] - b->data[i];
+    }
+
+    for(int i = 0; i < a->dim; i++){
+        if(isinf(res->data[i])){
+            float_overflow_error();
+        }
+    }
+    PG_RETURN_POINTER(res);
+}
+
+// 向量乘法
+// 输入：两个Vector类型的值
+// 输出：一个Vector类型的值. 不是内积
+// 示例：
+// SELECT hvector_mul('[1,0,0,0,1]'::hvector, '[1,0,0,1,0]'::hvector);
+// 结果： [1,0,0,0,0]
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_mul);
+PGDLLEXPORT Datum hvector_mul(PG_FUNCTION_ARGS){
+    Vector a = PG_GETARG_VECTOR_P(0);
+    Vector b = PG_GETARG_VECTOR_P(1);
+    Vector res;
+
+    CheckDims(a, b);
+
+    res = vector_create(a->dim);
+    for(int i = 0; i < a->dim; i++){
+        res->data[i] = a->data[i] * b->data[i];
+    }
+
+    for(int i = 0; i < a->dim; i++){
+        if(isinf(res->data[i])){
+            float_overflow_error();
+        }
+        if(res->data[i] == 0 && !(a->data[i] == 0 || b->data[i] == 0)){
+            float_underflow_error();
+        }
+    }
+    PG_RETURN_POINTER(res);
+}
+
+// 向量拼接
+// 输入：两个Vector类型的值
+// 输出：一个Vector类型的值
+// 示例：
+// SELECT hvector_concat('[1,0,0]'::hvector, '[1,0]'::hvector);
+// 结果： [1,0,0,1,0]
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_concat);
+PGDLLEXPORT Datum hvector_concat(PG_FUNCTION_ARGS){
+    Vector a = PG_GETARG_VECTOR_P(0);
+    Vector b = PG_GETARG_VECTOR_P(1);
+    Vector res;
+    int dim = a->dim + b->dim;
+
+    CheckDim(dim);
+
+    res = vector_create(dim);
+    for(int i = 0; i < a->dim; i++){
+        res->data[i] = a->data[i];
+    }
+    for(int i = 0; i < b->dim; i++){
+        res->data[i + a->dim] = b->data[i];
+    }
+    PG_RETURN_POINTER(res);
+}
+
+int 
+hvector_cmp0(Vector a, Vector b){
+    int dim = Min(a->dim, b->dim);
+    for(int i = 0; i < dim; i++){
+        if(a->data[i] < b->data[i]){
+            return -1;
+        }
+        if(a->data[i] > b->data[i]){
+            return 1;
+        }
+    }
+    if(a->dim < b->dim){
+        return -1;
+    }
+    if(a->dim > b->dim){
+        return 1;
+    }
+    return 0;
+}
+
+// 向量小于
+// 输入：两个Vector类型的值
+// 输出：一个boolean类型的值
+// 示例：
+// SELECT hvector_lt('[1,0,0,0,1]'::hvector, '[1,0,0,1,0]'::hvector);
+// 结果： true
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_lt);
+PGDLLEXPORT Datum hvector_lt(PG_FUNCTION_ARGS){
+    Vector a = PG_GETARG_VECTOR_P(0);
+    Vector b = PG_GETARG_VECTOR_P(1);
+    int cmp = hvector_cmp0(a, b);
+    PG_RETURN_BOOL(cmp < 0);
+}
+
+// 向量小于等于
+// 输入：两个Vector类型的值
+// 输出：一个boolean类型的值
+// 示例：
+// SELECT hvector_le('[1,0,0,0,1]'::hvector, '[1,0,0,1,0]'::hvector);
+// 结果： true
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_le);
+PGDLLEXPORT Datum hvector_le(PG_FUNCTION_ARGS){
+    Vector a = PG_GETARG_VECTOR_P(0);
+    Vector b = PG_GETARG_VECTOR_P(1);
+    int cmp = hvector_cmp0(a, b);
+    PG_RETURN_BOOL(cmp <= 0);
+}
+
+// 向量等于
+// 输入：两个Vector类型的值
+// 输出：一个boolean类型的值
+// 示例：
+// SELECT hvector_eq('[1,0,0,0,1]'::hvector, '[1,0,0,1,0]'::hvector);
+// 结果： false
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_eq);
+PGDLLEXPORT Datum hvector_eq(PG_FUNCTION_ARGS){
+    Vector a = PG_GETARG_VECTOR_P(0);
+    Vector b = PG_GETARG_VECTOR_P(1);
+    int cmp = hvector_cmp0(a, b);
+    PG_RETURN_BOOL(cmp == 0);
+}
+
+// 向量不等于
+// 输入：两个Vector类型的值
+// 输出：一个boolean类型的值
+// 示例：
+// SELECT hvector_ne('[1,0,0,0,1]'::hvector, '[1,0,0,1,0]'::hvector);
+// 结果： true
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_ne);
+PGDLLEXPORT Datum hvector_ne(PG_FUNCTION_ARGS){
+    Vector a = PG_GETARG_VECTOR_P(0);
+    Vector b = PG_GETARG_VECTOR_P(1);
+    int cmp = hvector_cmp0(a, b);
+    PG_RETURN_BOOL(cmp != 0);
+}
+
+// 向量大于等于
+// 输入：两个Vector类型的值
+// 输出：一个boolean类型的值
+// 示例：
+// SELECT hvector_ge('[1,0,0,0,1]'::hvector, '[1,0,0,1,0]'::hvector);
+// 结果： false
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_ge);
+PGDLLEXPORT Datum hvector_ge(PG_FUNCTION_ARGS){
+    Vector a = PG_GETARG_VECTOR_P(0);
+    Vector b = PG_GETARG_VECTOR_P(1);
+    int cmp = hvector_cmp0(a, b);
+    PG_RETURN_BOOL(cmp >= 0);
+}
+
+// 向量大于
+// 输入：两个Vector类型的值
+// 输出：一个boolean类型的值
+// 示例：
+// SELECT hvector_gt('[1,0,0,0,1]'::hvector, '[1,0,0,1,0]'::hvector);
+// 结果： false
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_gt);
+PGDLLEXPORT Datum hvector_gt(PG_FUNCTION_ARGS){
+    Vector a = PG_GETARG_VECTOR_P(0);
+    Vector b = PG_GETARG_VECTOR_P(1);
+    int cmp = hvector_cmp0(a, b);
+    PG_RETURN_BOOL(cmp > 0);
+}
+
+// 向量比较
+// 输入：两个Vector类型的值
+// 输出：一个int32类型的值
+// 示例：
+// SELECT hvector_cmp('[1,0,0,0,1]'::hvector, '[1,0,0,1,0]'::hvector);
+// 结果： -1
+// SELECT hvector_cmp('[1,0,0,1,0]'::hvector, '[1,0,0,0,1]'::hvector);
+// 结果： 1
+// SELECT hvector_cmp('[1,0,0,0,1]'::hvector, '[1,0,0,0,1]'::hvector);
+// 结果： 0
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_cmp);
+PGDLLEXPORT Datum hvector_cmp(PG_FUNCTION_ARGS){
+    Vector a = PG_GETARG_VECTOR_P(0);
+    Vector b = PG_GETARG_VECTOR_P(1);
+    int cmp = hvector_cmp0(a, b);
+    PG_RETURN_INT32(cmp);
+}
+
+// 向量负内积
+// 输入：两个Vector类型的值
+// 输出：一个float8类型的值
+// 示例：
+// SELECT hvector_negative_inner_product('[1,0,0,0,1]'::hvector, '[1,0,0,1,0]'::hvector);
+// 结果： -1
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_negative_inner_product);
+PGDLLEXPORT Datum hvector_negative_inner_product(PG_FUNCTION_ARGS){
+    Vector a = PG_GETARG_VECTOR_P(0);
+    Vector b = PG_GETARG_VECTOR_P(1);
+    double sum = 0.0;
+
+    CheckDims(a, b);
+
+    sum = hvector_inner_product_float(a->dim, a->data, b->data);
+    PG_RETURN_FLOAT8(-sum);
+}
+
+// 向量球面距离
+// 输入：两个Vector类型的值。单位向量。用于Elkan kmeans
+// 输出：一个double类型的值. 角度距离满足三角不等式
+// 示例：
+// SELECT hvector_spherical_distance('[1,0,0,0,0]'::hvector, '[0,1,0,0,0]'::hvector);
+// 结果： 0.5
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_spherical_distance);
+PGDLLEXPORT Datum hvector_spherical_distance(PG_FUNCTION_ARGS){
+    Vector a = PG_GETARG_VECTOR_P(0);
+    Vector b = PG_GETARG_VECTOR_P(1);
+    double dist = 0.0;
+
+    CheckDims(a, b);
+
+    dist = hvector_inner_product_float(a->dim, a->data, b->data);
+
+    if(dist > 1.0){
+        dist = 1.0;
+    }else if(dist < -1.0){
+        dist = -1.0;
+    }
+    PG_RETURN_FLOAT8(acos(dist) / M_PI);
 }

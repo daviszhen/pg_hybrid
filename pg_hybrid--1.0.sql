@@ -86,6 +86,13 @@ CREATE FUNCTION hvector_subvector(hvector, integer, integer) RETURNS hvector
 COMMENT ON FUNCTION hvector_subvector(hvector, integer, integer) IS 
 	'Get a subvector of a vector';
 
+CREATE FUNCTION hvector_concat(hvector, hvector) RETURNS hvector
+	AS 'MODULE_PATHNAME', 'hvector_concat'
+	LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION hvector_concat(hvector, hvector) IS 
+	'Concatenate two vectors';
+
 -- ============================================================================
 -- hvector 距离函数
 -- ============================================================================
@@ -118,6 +125,12 @@ CREATE FUNCTION hvector_l1_distance(hvector, hvector) RETURNS float8
 COMMENT ON FUNCTION hvector_l1_distance(hvector, hvector) IS 
 	'Returns the L1 distance between two vectors';
 
+CREATE FUNCTION hvector_spherical_distance(hvector, hvector) RETURNS float8
+	AS 'MODULE_PATHNAME', 'hvector_spherical_distance'
+	LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION hvector_spherical_distance(hvector, hvector) IS 
+	'Returns the spherical distance between two vectors';
 -- ============================================================================
 -- hvector 数值计算函数
 -- ============================================================================
@@ -129,8 +142,82 @@ CREATE FUNCTION hvector_inner_product(hvector, hvector) RETURNS float8
 COMMENT ON FUNCTION hvector_inner_product(hvector, hvector) IS 
 	'Returns the inner product of two vectors';
 
+CREATE FUNCTION hvector_add(hvector, hvector) RETURNS hvector
+	AS 'MODULE_PATHNAME', 'hvector_add'
+	LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION hvector_add(hvector, hvector) IS 
+	'Add two vectors';
 
+CREATE FUNCTION hvector_sub(hvector, hvector) RETURNS hvector
+	AS 'MODULE_PATHNAME', 'hvector_sub'
+	LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION hvector_sub(hvector, hvector) IS 
+	'Subtract two vectors';
+
+CREATE FUNCTION hvector_mul(hvector, hvector) RETURNS hvector
+	AS 'MODULE_PATHNAME', 'hvector_mul'
+	LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION hvector_mul(hvector, hvector) IS 
+	'Multiply two vectors';
+
+CREATE FUNCTION hvector_lt(hvector, hvector) RETURNS bool
+	AS 'MODULE_PATHNAME', 'hvector_lt'
+	LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION hvector_lt(hvector, hvector) IS 
+	'Less than two vectors';
+
+CREATE FUNCTION hvector_le(hvector, hvector) RETURNS bool
+	AS 'MODULE_PATHNAME', 'hvector_le'
+	LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION hvector_le(hvector, hvector) IS 
+	'Less than or equal to two vectors';
+
+CREATE FUNCTION hvector_eq(hvector, hvector) RETURNS bool
+	AS 'MODULE_PATHNAME', 'hvector_eq'
+	LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION hvector_eq(hvector, hvector) IS 
+	'Equal to two vectors';
+
+CREATE FUNCTION hvector_ne(hvector, hvector) RETURNS bool
+	AS 'MODULE_PATHNAME', 'hvector_ne'
+	LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION hvector_ne(hvector, hvector) IS 
+	'Not equal to two vectors';
+
+CREATE FUNCTION hvector_ge(hvector, hvector) RETURNS bool
+	AS 'MODULE_PATHNAME', 'hvector_ge'
+	LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION hvector_ge(hvector, hvector) IS 
+	'Greater than or equal to two vectors';
+
+CREATE FUNCTION hvector_gt(hvector, hvector) RETURNS bool
+	AS 'MODULE_PATHNAME', 'hvector_gt'
+	LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION hvector_gt(hvector, hvector) IS 
+	'Greater than two vectors';
+
+CREATE FUNCTION hvector_cmp(hvector, hvector) RETURNS int4
+	AS 'MODULE_PATHNAME', 'hvector_cmp'
+	LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION hvector_cmp(hvector, hvector) IS 
+	'Compare two vectors';
+
+CREATE FUNCTION hvector_negative_inner_product(hvector, hvector) RETURNS float8
+	AS 'MODULE_PATHNAME', 'hvector_negative_inner_product'
+	LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION hvector_negative_inner_product(hvector, hvector) IS 
+	'Returns the negative inner product of two vectors';
 -- ============================================================================
 -- hvector 操作符
 -- ============================================================================

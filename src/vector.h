@@ -5,6 +5,7 @@
 #include "postgres.h"
 #include "fmgr.h"
 #include "utils/relcache.h"
+#include "utils/varbit.h"
 #include "varatt.h"
 
 #define IVFFLAT_MAX_DIMENSIONS 2000
@@ -56,6 +57,9 @@ vector_update_center(Pointer center, int dimensions, float *temp);
 void
 vector_sum_center(Pointer v, float *x);
 
+VarBit* 
+bitvector_create(int dim);
+
 typedef struct ArrayData{
     int length;
     int max_length;
@@ -97,11 +101,20 @@ PGDLLEXPORT Datum hvector_send(PG_FUNCTION_ARGS);
 /* Vector utility functions */
 PGDLLEXPORT Datum hvector_dims(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum hvector_norm(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_l2_normalize(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_binary_quantize(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_subvector(PG_FUNCTION_ARGS);
 
 /* Vector distance functions */
 PGDLLEXPORT Datum hvector_l2_distance(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum hvector_l2_squared_distance(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_cosine_distance(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_l1_distance(PG_FUNCTION_ARGS);
+
+// 向量数值函数
+PGDLLEXPORT Datum hvector_inner_product(PG_FUNCTION_ARGS);
 
 /* Helper functions - defined in vector.c */
-
+float
+hvector_inner_product_float(int dim, float *a, float *b);
 #endif

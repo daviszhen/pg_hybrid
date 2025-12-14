@@ -72,6 +72,19 @@ CREATE OR REPLACE FUNCTION hvector_l2_normalize(hvector) RETURNS hvector
 COMMENT ON FUNCTION hvector_l2_normalize(hvector) IS 
 	'Normalize a vector to unit length using L2 norm';
 
+CREATE FUNCTION hvector_binary_quantize(hvector) RETURNS bit
+	AS 'MODULE_PATHNAME', 'hvector_binary_quantize'
+	LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION hvector_binary_quantize(hvector) IS 
+	'Binary quantize a vector';
+
+CREATE FUNCTION hvector_subvector(hvector, integer, integer) RETURNS hvector
+	AS 'MODULE_PATHNAME', 'hvector_subvector'
+	LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION hvector_subvector(hvector, integer, integer) IS 
+	'Get a subvector of a vector';
 
 -- ============================================================================
 -- hvector 距离函数
@@ -90,6 +103,33 @@ CREATE FUNCTION hvector_l2_squared_distance(hvector, hvector) RETURNS float8
 
 COMMENT ON FUNCTION hvector_l2_squared_distance(hvector, hvector) IS 
 	'Returns the squared L2 distance between two vectors (faster than l2_distance)';
+
+CREATE FUNCTION hvector_cosine_distance(hvector, hvector) RETURNS float8
+	AS 'MODULE_PATHNAME', 'hvector_cosine_distance'
+	LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION hvector_cosine_distance(hvector, hvector) IS 
+	'Returns the cosine distance between two vectors';
+
+CREATE FUNCTION hvector_l1_distance(hvector, hvector) RETURNS float8
+	AS 'MODULE_PATHNAME', 'hvector_l1_distance'
+	LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION hvector_l1_distance(hvector, hvector) IS 
+	'Returns the L1 distance between two vectors';
+
+-- ============================================================================
+-- hvector 数值计算函数
+-- ============================================================================
+
+CREATE FUNCTION hvector_inner_product(hvector, hvector) RETURNS float8
+	AS 'MODULE_PATHNAME', 'hvector_inner_product'
+	LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION hvector_inner_product(hvector, hvector) IS 
+	'Returns the inner product of two vectors';
+
+
 
 -- ============================================================================
 -- hvector 操作符

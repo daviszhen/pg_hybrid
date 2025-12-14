@@ -1,4 +1,5 @@
 #include "vector.h"
+#include "utils/varbit.h"
 #include "varatt.h"
 #include "fmgr.h"
 #include "utils/float.h"
@@ -44,6 +45,15 @@ vector_sum_center(Pointer v, float *x){
     for(int i = 0; i < dim; i++){
         x[i] += vec->data[i];
     }
+}
+
+VarBit* 
+bitvector_create(int dim){
+    int sz = VARBITTOTALLEN(dim);
+    VarBit *result = (VarBit *) palloc0(sz);
+    SET_VARSIZE(result, sz);
+    VARBITLEN(result) = dim;
+    return result;
 }
 
 Array
@@ -144,6 +154,14 @@ static inline void CheckDim(int dim)
         ereport(ERROR,
                 (errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
                  errmsg("vector cannot have more than %d dimensions", VECTOR_MAX_DIM)));
+}
+
+static inline void CheckDims(Vector a,Vector b)
+{
+    if (a->dim != b->dim)
+    ereport(ERROR,
+            (errcode(ERRCODE_DATA_EXCEPTION),
+             errmsg("dimensions are different: %d and %d", a->dim, b->dim)));
 }
 
 static inline void CheckExpectedDim(int32 typmod, int dim)
@@ -458,4 +476,167 @@ hvector_l2_squared_distance(PG_FUNCTION_ARGS)
     }
 
     PG_RETURN_FLOAT8(sum);
+}
+
+// 向量二值化
+// 输入：一个Vector类型的值
+// 输出：一个VarBit类型的值
+// 大于0的元素为1，其它为0
+// 示例：
+// SELECT hvector_binary_quantize('[1,2,0,4,-1]'::hvector);
+// 结果： 11010
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_binary_quantize);
+Datum
+hvector_binary_quantize(PG_FUNCTION_ARGS)
+{
+    Vector vec = PG_GETARG_VECTOR_P(0);
+    VarBit *res = bitvector_create(vec->dim);
+    unsigned char *res_bits = VARBITS(res);
+    const int bits_per_byte = 8;
+    int count = (vec->dim / bits_per_byte) * bits_per_byte;
+    int i = 0 ;
+    unsigned char b = 0;
+
+    for(i = 0; i < count; i += bits_per_byte){
+        b = 0;
+        for(int j = 0; j < bits_per_byte; j++){
+            b |= (vec->data[i + j] > 0) << (7 - j);
+        }
+        res_bits[i / bits_per_byte] = b;
+    }
+
+    for(; i < vec->dim; i++){
+        res_bits[i/bits_per_byte] |= (vec->data[i] > 0) << (7 - (i % bits_per_byte));
+    }
+
+    PG_RETURN_VARBIT_P(res);
+}
+
+// 获取向量的子向量。类似golang的切片
+// 输入：一个Vector类型的值，一个起始索引，一个长度
+// 输出：一个Vector类型的值
+// 示例：
+// SELECT hvector_subvector('[1,2,3,4,5]'::hvector, 2, 3);
+// 结果： [2,3,4]
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_subvector);
+Datum hvector_subvector(PG_FUNCTION_ARGS){
+    Vector vec = PG_GETARG_VECTOR_P(0);
+    int32 start = PG_GETARG_INT32(1);
+    int32 count = PG_GETARG_INT32(2);
+    int32 end;
+    int new_dim;
+    Vector res;
+
+    if(count < 1)
+        ereport(ERROR,
+                (errcode(ERRCODE_DATA_EXCEPTION),
+                 errmsg("count must be greater than 0")));
+
+    //end 最大是vec->dim + 1
+    if(start > vec->dim - count){
+        end = vec->dim + 1;
+    }else{
+        end = start + count;
+    }
+
+    if(start < 1){
+        start = 1;
+    }else if(start > vec->dim){
+        ereport(ERROR,
+                (errcode(ERRCODE_DATA_EXCEPTION),
+                 errmsg("start must be <= %d", vec->dim)));
+    }
+    new_dim = end - start;
+    CheckDim(new_dim);
+    res = vector_create(new_dim);
+    for(int i = 0; i < new_dim; i++){
+        res->data[i] = vec->data[start - 1 + i];
+    }
+    PG_RETURN_POINTER(res);
+}
+
+// 向量内积
+// 输入：两个Vector类型的值
+// 输出：一个float8类型的值
+// 示例：
+// SELECT hvector_inner_product('[1,0,0,0,1]'::hvector, '[1,0,0,1,0]'::hvector);
+// 结果： 1
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_inner_product);
+Datum hvector_inner_product(PG_FUNCTION_ARGS){
+    Vector a = PG_GETARG_VECTOR_P(0);
+    Vector b = PG_GETARG_VECTOR_P(1);
+    double sum = 0.0;
+
+    CheckDims(a, b);
+
+    sum = hvector_inner_product_float(a->dim, a->data, b->data);
+    PG_RETURN_FLOAT8(sum);
+}
+
+float
+hvector_inner_product_float(int dim, float *a, float *b){
+    float res = 0.0;
+    for(int i = 0; i < dim; i++){
+        res += a[i] * b[i];
+    }
+    return res;
+}
+
+// 向量余弦距离
+// 输入：两个Vector类型的值
+// 输出：一个float8类型的值
+// 示例：
+// SELECT hvector_cosine_distance('[1,0,0,0,1]'::hvector, '[1,0,0,1,0]'::hvector);
+// 结果： 0.5
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_cosine_distance);
+PGDLLEXPORT Datum hvector_cosine_distance(PG_FUNCTION_ARGS){
+    Vector a = PG_GETARG_VECTOR_P(0);
+    Vector b = PG_GETARG_VECTOR_P(1);
+    double dist = 0.0, norm_a = 0.0, norm_b = 0.0;
+    double f;
+
+    CheckDims(a, b);
+
+    for(int i = 0; i < a->dim; i++){
+        dist += a->data[i] * b->data[i];
+        norm_a += a->data[i] * a->data[i];
+        norm_b += b->data[i] * b->data[i];
+    }
+
+    f = sqrt((double)norm_a * (double)norm_b);
+    if(f == 0.0){
+        ereport(ERROR,
+                (errcode(ERRCODE_DATA_EXCEPTION),
+                 errmsg("norm_a and norm_b are 0")));
+    }
+
+    dist = dist / f;
+
+
+    if(dist > 1.0){
+        dist = 1.0;
+    }else if(dist < -1.0){
+        dist = -1.0;
+    }
+    PG_RETURN_FLOAT8(1.0 - dist);
+}
+
+// 向量L1距离
+// 输入：两个Vector类型的值
+// 输出：一个float8类型的值
+// 示例：
+// SELECT hvector_l1_distance('[1,0,0,0,1]'::hvector, '[1,0,0,1,0]'::hvector);
+// 结果： 2
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_l1_distance);
+PGDLLEXPORT Datum hvector_l1_distance(PG_FUNCTION_ARGS){
+    Vector a = PG_GETARG_VECTOR_P(0);
+    Vector b = PG_GETARG_VECTOR_P(1);
+    float sum = 0.0;
+
+    CheckDims(a, b);
+
+    for(int i = 0; i < a->dim; i++){
+        sum += fabsf(a->data[i] - b->data[i]);
+    }
+    PG_RETURN_FLOAT8((double)sum);
 }

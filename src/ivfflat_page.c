@@ -43,16 +43,16 @@ ivfflat_append_page(
     ForkNumber fork_num){
     Buffer new_buf;
     Page new_page;
-
     new_buf = ivfflat_new_buffer(index, fork_num);
-    ivfflat_append_xlog(&new_buf, &new_page, *state);
-    
-    //append page to previous page
+    new_page = GenericXLogRegisterBuffer(*state, new_buf, GENERIC_XLOG_FULL_IMAGE);
     IvfflatPageGetOpaque(*page)->nextblkno = BufferGetBlockNumber(new_buf);
+    ivfflat_init_page(new_buf, new_page);
 
-    ivfflat_commit_xlog(*buf, *state);
+    GenericXLogFinish(*state);
+    UnlockReleaseBuffer(*buf);
 
-    ivfflat_start_xlog(index, &new_buf, page, state);
+    *state = GenericXLogStart(index);
+    *page = GenericXLogRegisterBuffer(*state, new_buf, GENERIC_XLOG_FULL_IMAGE);
     *buf = new_buf;
 }
 

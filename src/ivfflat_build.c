@@ -287,7 +287,7 @@ ivfflat_scan_tuples(IvfflatBuildCtx ctx){
             ctx->index_info,
             true,
             true,
-            ivfflat_sort_tuples,
+            ivfflat_sort_tuples_callback,
             (void *) ctx,
             NULL
         );
@@ -314,24 +314,47 @@ ivfflat_init_sort_state(TupleDesc tupdesc,int memory, SortCoordinate coordinate)
 }
 
 void
-ivfflat_sort_tuples(
+ivfflat_sort_tuples_callback(
     Relation index,
     ItemPointer tid,
     Datum *values,
     bool *isnull,
     bool tupleIsAlive,
     void *state){
+    IvfflatBuildCtx ctx = (IvfflatBuildCtx) state;
+    MemoryContext old_ctx;
+
+    if(isnull[0]){
+        return;
+    }
+
+    old_ctx = MemoryContextSwitchTo(ctx->tmp_ctx);
+
+    ivfflat_sort_tuples(index, tid, values, ctx);
+
+    MemoryContextSwitchTo(old_ctx);
+	MemoryContextReset(ctx->tmp_ctx);
+}
+
+void
+ivfflat_sort_tuples(
+    Relation index,
+    ItemPointer tid,
+    Datum *values,
+    IvfflatBuildCtx ctx){
     double distance;
     double min_distance = DBL_MAX;
     int closest_center = 0;
     Pointer center;
     Datum   value;
-    IvfflatBuildCtx ctx = (IvfflatBuildCtx) state;
-    if(isnull[0]){
-        return;
-    }
-
     value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+
+    if(ctx->vector_normalize_proc != NULL){
+        if(!ivfflat_norm_non_zero(ctx->vector_normalize_proc, ctx->collation, value)){
+            return;
+        }
+        value = ivfflat_normalize_value(ctx->vector_type, ctx->collation, value);
+    }
 
     for(int i = 0; i < ctx->centers->length; i++){
         center = array_get(ctx->centers, i);
@@ -373,7 +396,7 @@ ivfflat_insert_tuples(IvfflatBuildCtx ctx, ForkNumber fork_num){
         ctx->sort_desc,
         &TTSOpsMinimalTuple
     );
-    tupdesc = ctx->sort_desc;
+    tupdesc = ctx->tupdesc;
 
     ivfflat_get_next_tuple(
         ctx->sort_state, 
@@ -448,55 +471,13 @@ ivfflat_get_next_tuple(
     IndexTuple *itup,
     int *list_no
 ){
-    Size sz;
-    char *value_str;
-    struct varlena *varlena_ptr;
     if(tuplesort_gettupleslot(sort_state, true, false, slot, NULL)){
         Datum value;
         bool isnull;
 
+        //sort desc  1: list_no, 2: tid, 3: vector(values[0])
         *list_no = DatumGetInt32(slot_getattr(slot, 1, &isnull));
         value = slot_getattr(slot, 3, &isnull);
-
-        sz = VARSIZE(value);
-        elog(INFO, "==pengzhen==value size: %ld",sz);
-        // ✅ 判断是否是 TOAST
-        // if (!isnull) {
-        //     varlena_ptr = (struct varlena *) DatumGetPointer(value);
-            
-        //     if (VARATT_IS_EXTERNAL(varlena_ptr)) {
-        //         elog(INFO, "==pengzhen==value is TOAST external (stored in TOAST table)");
-                
-        //         if (VARATT_IS_EXTERNAL_ONDISK(varlena_ptr)) {
-        //             elog(INFO, "==pengzhen==value is TOAST on-disk");
-        //         } else if (VARATT_IS_EXTERNAL_INDIRECT(varlena_ptr)) {
-        //             elog(INFO, "==pengzhen==value is TOAST indirect (in-memory)");
-        //         }
-        //     } else if (VARATT_IS_COMPRESSED(varlena_ptr)) {
-        //         elog(INFO, "==pengzhen==value is compressed inline");
-        //     } else {
-        //         elog(INFO, "==pengzhen==value is plain (not TOAST)");
-        //     }
-            
-        //     // 或者使用更简单的判断
-        //     if (VARATT_IS_EXTENDED(varlena_ptr)) {
-        //         elog(INFO, "==pengzhen==value is extended (compressed or external)");
-        //     }
-        // } else {
-        //     elog(INFO, "==pengzhen==value: NULL");
-        // }
-        // if (!isnull) {
-        //     // 方法 1：调用输出函数（需要包含 fmgr.h）
-        //     value_str = DatumGetCString(DirectFunctionCall1(
-        //         hvector_out, 
-        //         value
-        //     ));
-        //     elog(INFO, "==pengzhen==value: %s", value_str);
-        //     pfree(value_str);
-        // } else {
-        //     elog(INFO, "==pengzhen==value: NULL");
-        // }
-
         *itup = index_form_tuple(tupdesc, &value, &isnull);
         (*itup)->t_tid = *((ItemPointer) DatumGetPointer(
             slot_getattr(slot, 2, &isnull)));

@@ -126,6 +126,14 @@ PGDLLEXPORT Datum hvector_cmp(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum hvector_inner_product(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum hvector_negative_inner_product(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum hvector_spherical_distance(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_accum(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_combine(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_avg(PG_FUNCTION_ARGS);
+
+//向量类型转换
+PGDLLEXPORT Datum hvector(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum array_to_hvector(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum hvector_to_float4(PG_FUNCTION_ARGS);
 
 /* Helper functions - defined in vector.c */
 float

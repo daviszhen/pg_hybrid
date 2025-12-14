@@ -12,6 +12,7 @@
 #include <math.h>
 #include <errno.h>
 #include <ctype.h>
+#include "utils/lsyscache.h"
 
 Vector
 vector_create(int dimensions){
@@ -85,11 +86,10 @@ array_get(Array array, int index){
 PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_l2_normalize);
 Datum
 hvector_l2_normalize(PG_FUNCTION_ARGS){
-    Vector a;
+    Vector a = (Vector)PG_DETOAST_DATUM(PG_GETARG_DATUM(0));
     double norm = 0.0;
     Vector res;
 
-    a = (Vector)PG_DETOAST_DATUM(PG_GETARG_DATUM(0));
     res = vector_create(a->dim);
     for(int i = 0; i < a->dim; i++){
         norm += a->data[i] * a->data[i];
@@ -913,4 +913,256 @@ PGDLLEXPORT Datum hvector_spherical_distance(PG_FUNCTION_ARGS){
         dist = -1.0;
     }
     PG_RETURN_FLOAT8(acos(dist) / M_PI);
+}
+
+static float8 *
+CheckStateArray(ArrayType *statearray)
+{
+	if (ARR_NDIM(statearray) != 1 ||
+		ARR_DIMS(statearray)[0] < 1 ||
+		ARR_HASNULL(statearray) ||
+		ARR_ELEMTYPE(statearray) != FLOAT8OID)
+		elog(ERROR, "invalid state array");
+	return (float8 *) ARR_DATA_PTR(statearray);
+}
+
+// 聚合函数的状态转换函数
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_accum);
+PGDLLEXPORT Datum hvector_accum(PG_FUNCTION_ARGS){
+    //format: [count, sum_dim1, sum_dim2, ..., sum_dimN]
+    ArrayType  *arr = PG_GETARG_ARRAYTYPE_P(0);
+	Vector	   vec = PG_GETARG_VECTOR_P(1);
+    int dim = ARR_DIMS(arr)[0] - 1;
+    float8 * old_states = CheckStateArray(arr);
+    Datum *new_states;
+    ArrayType *res;
+    bool first;
+
+    first = (dim == 0);
+    if(first){
+        dim = vec->dim;
+    }else{
+        CheckExpectedDim(dim, vec->dim);
+    }
+
+    new_states = palloc(sizeof(Datum) * (dim + 1));
+    new_states[0] = Float8GetDatum(old_states[0] + 1.0);
+    if(first){
+        for(int i = 0; i < dim; i++){
+            new_states[i + 1] = Float8GetDatum(vec->data[i]);
+        }
+    }else{
+        double v;
+        for(int i = 0; i < dim; i++){ 
+            v = old_states[i + 1] + vec->data[i];
+            if(isinf(v)){
+                float_overflow_error();
+            }
+            new_states[i + 1] = Float8GetDatum(v);
+        }
+    }
+
+    res = construct_array(
+        new_states,
+        dim + 1,
+        FLOAT8OID,
+        sizeof(float8),
+        FLOAT8PASSBYVAL,
+        TYPALIGN_DOUBLE);
+    pfree(new_states);
+    PG_RETURN_ARRAYTYPE_P(res);
+}
+
+//合并两个状态数组
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_combine);
+PGDLLEXPORT Datum hvector_combine(PG_FUNCTION_ARGS){
+    ArrayType  *arr1 = PG_GETARG_ARRAYTYPE_P(0);
+    ArrayType  *arr2 = PG_GETARG_ARRAYTYPE_P(1);
+    float8 * states1 = CheckStateArray(arr1);
+    float8 * states2 = CheckStateArray(arr2);
+    float8 n,n1,n2;
+    int dim,dim2;
+    Datum *new_states;
+    ArrayType *res;
+
+    n1 = states1[0];
+    n2 = states2[0];
+    if(n1 == 0.0){
+        n = n2;
+        dim = ARR_DIMS(arr2)[0] - 1;
+        new_states = palloc(sizeof(Datum) * (dim + 1));
+        for(int i = 0; i < dim; i++){
+            new_states[i + 1] = Float8GetDatum(states2[i + 1]);
+        }
+    }else if(n2 == 0.0){
+        n = n1;
+        dim = ARR_DIMS(arr1)[0] - 1;
+        new_states = palloc(sizeof(Datum) * (dim + 1));
+        for(int i = 0; i < dim; i++){
+            new_states[i + 1] = Float8GetDatum(states1[i + 1]);
+        }
+    }else{
+        n = n1 + n2;
+        dim = ARR_DIMS(arr1)[0] - 1;
+        dim2 = ARR_DIMS(arr2)[0] - 1;
+        CheckExpectedDim(dim, dim2);
+        new_states = palloc(sizeof(Datum) * (dim + 1));
+        for(int i = 0; i < dim; i++){
+            double v = states1[i + 1] + states2[i + 1];
+            if(isinf(v)){
+                float_overflow_error();
+            }
+            new_states[i + 1] = Float8GetDatum(v);
+        }
+    }
+    new_states[0] = Float8GetDatum(n);
+    res = construct_array(
+        new_states,
+        dim + 1,
+        FLOAT8OID,
+        sizeof(float8),
+        FLOAT8PASSBYVAL,
+        TYPALIGN_DOUBLE);
+    pfree(new_states);
+    PG_RETURN_ARRAYTYPE_P(res);
+}
+
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_avg);
+PGDLLEXPORT Datum hvector_avg(PG_FUNCTION_ARGS){
+    ArrayType  *arr = PG_GETARG_ARRAYTYPE_P(0);
+    float8 * states = CheckStateArray(arr);
+    float8 n;
+    int dim;
+    Vector res;
+
+    n = states[0];
+    if(n == 0.0){
+        PG_RETURN_NULL();
+    }
+
+    dim = ARR_DIMS(arr)[0] - 1;
+    CheckDim(dim);
+
+    res = vector_create(dim);
+    for(int i = 0; i < dim; i++){
+        res->data[i] = states[i + 1] / n;
+        is_valid_float(res->data[i]);
+    }
+    PG_RETURN_POINTER(res);
+}
+
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector);
+PGDLLEXPORT Datum hvector(PG_FUNCTION_ARGS){
+    Vector vec = PG_GETARG_VECTOR_P(0);
+    int typmod = PG_GETARG_INT32(1);
+
+    CheckExpectedDim(typmod, vec->dim);
+
+    PG_RETURN_POINTER(vec);
+}
+
+PGDLLEXPORT PG_FUNCTION_INFO_V1(array_to_hvector);
+PGDLLEXPORT Datum array_to_hvector(PG_FUNCTION_ARGS){
+    ArrayType  *arr = PG_GETARG_ARRAYTYPE_P(0);
+	int32		typmod = PG_GETARG_INT32(1);
+    //type元信息：type长度，按值传递，对齐方式
+    int16 typ_len;
+    bool typ_byval;
+    char typ_align;
+    Datum *data;
+    int count;
+    Vector res;
+
+    if (ARR_NDIM(arr) > 1){
+        ereport(ERROR,
+            (errcode(ERRCODE_DATA_EXCEPTION),
+             errmsg("array must be 1-D")));
+    }
+    
+
+    if (ARR_HASNULL(arr) && array_contains_nulls(arr)){
+        ereport(ERROR,
+            (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+             errmsg("array must not contain nulls")));
+    }
+    
+    //取type的元信息
+    get_typlenbyvalalign(
+        ARR_ELEMTYPE(arr),
+        &typ_len,
+        &typ_byval,
+        &typ_align
+    );
+
+    //将数组转换成Datum数组
+    deconstruct_array(
+        arr,
+        ARR_ELEMTYPE(arr),
+        typ_len,
+        typ_byval,
+        typ_align,
+        &data,
+        NULL,
+        &count
+    );
+
+    CheckDim(count);
+    CheckExpectedDim(typmod, count);
+
+    res = vector_create(count);
+    switch(ARR_ELEMTYPE(arr)){
+        case INT4OID:
+            for(int i = 0; i < count; i++){
+                res->data[i] = DatumGetInt32(data[i]);
+            }
+            break;
+        case FLOAT8OID:
+            for(int i = 0; i < count; i++){
+                res->data[i] = DatumGetFloat8(data[i]);
+            }
+            break;
+        case FLOAT4OID:
+            for(int i = 0; i < count; i++){
+                res->data[i] = DatumGetFloat4(data[i]);
+            }
+            break;
+        case NUMERICOID:
+            for(int i = 0; i < count; i++){
+                res->data[i] = DatumGetFloat4(
+                    DirectFunctionCall1(
+                        numeric_float4, data[i]));
+            }
+            break;
+        default:
+            ereport(ERROR,
+                (errcode(ERRCODE_DATA_EXCEPTION),
+                 errmsg("unsupported array type")));
+    }
+    pfree(data);
+    for(int i = 0; i < count; i++){
+        is_valid_float(res->data[i]);
+    }
+    PG_RETURN_POINTER(res);
+}
+
+// 向量转换为float4数组
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_to_float4);
+PGDLLEXPORT Datum hvector_to_float4(PG_FUNCTION_ARGS){
+    Vector vec = PG_GETARG_VECTOR_P(0);
+    Datum *data;
+    ArrayType *res;
+
+    data = palloc(sizeof(Datum) * vec->dim);
+    for(int i = 0; i < vec->dim; i++){
+        data[i] = Float4GetDatum(vec->data[i]);
+    }
+    res = construct_array(
+        data,
+        vec->dim,
+        FLOAT4OID,
+        sizeof(float4),
+        true,
+        TYPALIGN_INT);
+    pfree(data);
+    PG_RETURN_ARRAYTYPE_P(res);
 }

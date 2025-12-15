@@ -4,7 +4,16 @@
 #include "utils/guc.h"
 
 int ivfflat_probes;
-relopt_kind ivfflat_relopt_kind;
+int ivfflat_iterative_scan;
+int ivfflat_max_probes;
+static relopt_kind ivfflat_relopt_kind;
+
+static const struct config_enum_entry ivfflat_iterative_scan_options[] = {
+	{"off", IVFFLAT_ITERATIVE_SCAN_OFF, false},
+	{"relaxed_order", IVFFLAT_ITERATIVE_SCAN_RELAXED, false},
+	{NULL, 0, false}
+};
+
 
 void ivfflat_init_options(void){
     ivfflat_relopt_kind = add_reloption_kind();
@@ -21,7 +30,7 @@ void ivfflat_init_options(void){
 
 
     DefineCustomIntVariable(
-    "ivfflat.probes",
+    "pg_hybrid_ivfflat.probes",
     "Sets the number of probes",
     "Valid range is 1..lists.",
      &ivfflat_probes,
@@ -29,6 +38,27 @@ void ivfflat_init_options(void){
     IVFFLAT_MIN_LIST_COUNT,
     IVFFLAT_MAX_LIST_COUNT,
     PGC_USERSET, 0, NULL, NULL, NULL);
+
+    DefineCustomEnumVariable(
+    "pg_hybrid_ivfflat.iterative_scan", 
+    "Sets the mode for iterative scans",
+    NULL,
+    &ivfflat_iterative_scan,
+    IVFFLAT_ITERATIVE_SCAN_OFF,
+    ivfflat_iterative_scan_options, 
+    PGC_USERSET, 0, NULL, NULL, NULL);
+
+    DefineCustomIntVariable(
+    "pg_hybrid_ivfflat.max_probes", 
+    "Sets the max number of probes for iterative scans",
+    NULL, 
+    &ivfflat_max_probes,
+    IVFFLAT_MAX_LIST_COUNT, 
+    IVFFLAT_MIN_LIST_COUNT, 
+    IVFFLAT_MAX_LIST_COUNT, 
+    PGC_USERSET, 0, NULL, NULL, NULL);
+
+    MarkGUCPrefixReserved("pg_hybrid_ivfflat");
 }
 
 bytea *

@@ -17,7 +17,7 @@
 #include "catalog/pg_operator_d.h"
 #include "miscadmin.h"
 #include <float.h>
-
+extern int ivfflat_probes;
 void
 ivfflat_costestimate(PlannerInfo *root, IndexPath *path, double loop_count,
     Cost *indexStartupCost, Cost *indexTotalCost,

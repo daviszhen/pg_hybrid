@@ -6,6 +6,7 @@
 #include "utils/rel.h"
 #include "vector.h"
 #include "utils/memutils.h"
+#include "utils/sampling.h"
 
 #define IVFFLAT_DEFAULT_LISTS_COUNT 100
 
@@ -31,6 +32,7 @@ typedef struct IvfflatBuildCtxData
 
     FmgrInfo *vector_distance_proc;
     FmgrInfo *vector_normalize_proc;
+    FmgrInfo *vector_kmeans_normalize_proc;
     Oid collation;
 
     TupleDesc sort_desc;
@@ -39,6 +41,11 @@ typedef struct IvfflatBuildCtxData
 
     Array centers;
     Array list_infos;
+
+    Array samples;
+    BlockSamplerData block_sampler;
+    ReservoirStateData resvr_state;
+    int skip_count;
 
     MemoryContext tmp_ctx;
 
@@ -65,7 +72,31 @@ void
 ivfflat_calculate_centers(IvfflatBuildCtx ctx);
 
 void
+ivfflat_sample_tuples(IvfflatBuildCtx ctx);
+
+void
+ivfflat_sample_tuples_internal(IvfflatBuildCtx ctx, Datum *values);
+
+void 
+ivfflat_sample_tuples_callback(
+    Relation index,
+    ItemPointer tid,
+    Datum *values,
+    bool *isnull,
+    bool tuple_is_alive,
+    void *state
+);
+
+void
 ivfflat_random_centers(IvfflatBuildCtx ctx);
+
+void
+ivfflat_elkan_kmeans(
+    Relation index,
+    Array samples,
+    Array centers,
+    const IvfflatVectorType vector_type
+);
 
 void 
 ivfflat_create_meta_page(

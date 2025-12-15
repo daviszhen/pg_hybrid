@@ -12,6 +12,7 @@
 #include <math.h>
 #include <errno.h>
 #include <ctype.h>
+#include <string.h>
 #include "utils/lsyscache.h"
 
 Vector
@@ -81,6 +82,12 @@ array_destroy(Array array){
 Pointer
 array_get(Array array, int index){
     return array->data + (index * array->item_size);
+}
+
+void
+array_copy(Array array, int offset, Pointer val){
+    Pointer dst = array_get(array, offset);
+    memcpy(dst, val,VARSIZE_ANY(val));
 }
 
 PGDLLEXPORT PG_FUNCTION_INFO_V1(hvector_l2_normalize);

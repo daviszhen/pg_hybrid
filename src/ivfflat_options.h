@@ -8,12 +8,16 @@
 #define IVFFLAT_MIN_LIST_COUNT 1
 #define IVFFLAT_MAX_LIST_COUNT 32768
 
-extern int ivfflat_probes;
-
 typedef struct IvfflatOptions {
     int32 vl_len_;
     int list_count;
 } IvfflatOptions;
+
+typedef enum IvfflatIterativeScanMode
+{
+	IVFFLAT_ITERATIVE_SCAN_OFF,
+	IVFFLAT_ITERATIVE_SCAN_RELAXED
+}	IvfflatIterativeScanMode;
 
 void ivfflat_init_options(void);
 #endif

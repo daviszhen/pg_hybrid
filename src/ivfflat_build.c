@@ -14,7 +14,9 @@
 #include "storage/off.h"
 #include <float.h>
 #include "catalog/index.h"
+#include "utils/array.h"
 #include "utils/palloc.h"
+#include "utils/sampling.h"
 
 IndexBuildResult *
 ivfflat_build(Relation heap, Relation index, IndexInfo *indexInfo)
@@ -163,7 +165,153 @@ ivfflat_get_proc_info(Relation index, uint16 procnum){
 
 void
 ivfflat_calculate_centers(IvfflatBuildCtx ctx){
+    int cnt;
+    //1. samples
+    cnt = ctx->list_count * 50;
+    cnt = Max(cnt, 10000);
+
+    //unlogged table
+    if(ctx->heap == NULL){
+        cnt = 1;
+    }
+
+    ctx->samples = array_create(
+        cnt, 
+        ctx->dimensions,
+        ctx->centers->item_size);
+    if(ctx->heap != NULL){
+        //do sample
+        ivfflat_sample_tuples(ctx);
+
+        if(ctx->samples->length < ctx->list_count){
+            elog(NOTICE, "ivfflat index created with little data");
+            elog(NOTICE, "This will cause low recall.");
+            elog(NOTICE, "Drop the index until the table has more data.");
+        }
+    }
+
+    //2. calculate centers
     ivfflat_random_centers(ctx);
+
+    array_destroy(ctx->samples);
+    ctx->samples = NULL;
+}
+
+void 
+ivfflat_sample_tuples_callback(
+    Relation index,
+    ItemPointer tid,
+    Datum *values,
+    bool *isnull,
+    bool tuple_is_alive,
+    void *state
+){
+    IvfflatBuildCtx ctx = (IvfflatBuildCtx) state;
+    MemoryContext old_ctx;
+
+    if(isnull[0]){
+        return;
+    }
+
+    old_ctx = MemoryContextSwitchTo(ctx->tmp_ctx);
+    
+    ivfflat_sample_tuples_internal(ctx, values);
+
+    MemoryContextSwitchTo(old_ctx);
+    MemoryContextReset(ctx->tmp_ctx);
+}
+
+void
+ivfflat_sample_tuples_internal(IvfflatBuildCtx ctx, Datum *values){
+    int need_cnt = ctx->samples->max_length;
+
+    Datum value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+
+    //球形距离需要单位向量
+    if(ctx->vector_kmeans_normalize_proc != NULL){
+        if(!ivfflat_norm_non_zero(
+            ctx->vector_kmeans_normalize_proc, 
+            ctx->collation, 
+            value)){
+            return;
+        }
+        value = ivfflat_normalize_value(
+            ctx->vector_type,
+             ctx->collation, 
+             value);
+    }
+
+    //加入采样数组
+    if(ctx->samples->length < need_cnt){
+        array_copy(
+            ctx->samples, 
+            ctx->samples->length, 
+            DatumGetPointer(value));
+        ctx->samples->length++;
+    }else{
+        //计算要跳过的个数
+        if(ctx->skip_count < 0){
+            ctx->skip_count = reservoir_get_next_S(
+                &ctx->resvr_state, 
+                ctx->samples->length, 
+                need_cnt);
+        }
+
+        if(ctx->skip_count <= 0){
+            //保留此tuple
+            //选择要替换的位置
+            int k = (int)(need_cnt * sampler_random_fract(&ctx->resvr_state.randstate));
+            array_copy(
+                ctx->samples, 
+                k, 
+                DatumGetPointer(value));
+        }
+
+        //倒计
+        ctx->skip_count--;
+    }
+}
+
+void
+ivfflat_sample_tuples(IvfflatBuildCtx ctx){
+    int need_cnt = ctx->samples->max_length;
+    BlockNumber total_blocks = RelationGetNumberOfBlocks(ctx->heap);
+
+    ctx->skip_count = -1;
+
+    //块采样。选择需要的块
+    BlockSampler_Init(
+        &ctx->block_sampler,
+        total_blocks,
+        need_cnt,
+        RandomInt()
+    );
+
+    //蓄水池采样。选择需要的样本
+    reservoir_init_selection_state(
+        &ctx->resvr_state,
+        need_cnt
+    );
+
+    //采样块
+    while(BlockSampler_HasMore(&ctx->block_sampler)){
+        BlockNumber block = BlockSampler_Next(&ctx->block_sampler);
+
+        //采样块内的tuple
+        table_index_build_range_scan(
+            ctx->heap,
+            ctx->index,
+            ctx->index_info,
+            false,
+            true,
+            false,
+            block,
+            1,
+            ivfflat_sample_tuples_callback,
+            (void *) ctx,
+            NULL
+        );
+    }
 }
 
 void
@@ -182,8 +330,18 @@ ivfflat_random_centers(IvfflatBuildCtx ctx){
     }
 
     if(procinfo != NULL){
-        
+        //TODO:
     }
+
+}
+
+void
+ivfflat_elkan_kmeans(
+    Relation index,
+    Array samples,
+    Array centers,
+    const IvfflatVectorType vector_type
+){
 
 }
 

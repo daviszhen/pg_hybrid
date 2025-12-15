@@ -79,6 +79,9 @@ array_destroy(Array array);
 Pointer
 array_get(Array array, int index);
 
+void
+array_copy(Array array, int offset, Pointer val);
+
 FmgrInfo *
 ivfflat_get_proc_info(Relation index, uint16 procnum);
 

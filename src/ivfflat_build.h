@@ -91,11 +91,52 @@ void
 ivfflat_random_centers(IvfflatBuildCtx ctx);
 
 void
+ivfflat_normalize_centers(
+    IvfflatVectorType vector_type,
+    Oid collation,
+    Array centers
+);
+
+void 
+ivfflat_kmeans_plusplus(
+    Relation index,
+    Array samples,
+    Array centers,
+    float *lower_bounds
+);
+
+void
 ivfflat_elkan_kmeans(
     Relation index,
     Array samples,
     Array centers,
     const IvfflatVectorType vector_type
+);
+
+void ivfflat_new_centers(
+    Array samples,
+    float *agg,
+    Array new_centers,
+    int *center_counts,
+    int *closest_centers,
+    FmgrInfo *normalize_proc,
+    Oid collation,
+    IvfflatVectorType vector_type
+);
+
+void
+ivfflat_sum_centers(
+    Array samples,
+    float *agg,
+    int *closest_centers,
+    IvfflatVectorType vector_type
+);
+
+void
+ivfflat_update_centers(
+    float *agg,
+    Array centers,
+    IvfflatVectorType vector_type
 );
 
 void 

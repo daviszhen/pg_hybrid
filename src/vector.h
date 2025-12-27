@@ -70,6 +70,8 @@ typedef struct ArrayData{
 
 typedef ArrayData * Array;
 
+#define ARRAY_SIZE(_len,_sz) (sizeof(ArrayData) + (_len) * (_sz))
+
 Array
 array_create(int max_length, int dimensions, Size item_size);
 
